@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🌍 Carbon Emission Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0fdf4;
+      color: #1b4332;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      color: #2d6a4f;
+    }
+    .container {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      max-width: 650px;
+      margin: auto;
+      padding: 20px;
+    }
+    label {
+      display: block;
+      margin: 10px 0;
+      font-weight: bold;
+      text-align: left;
+    }
+    input {
+      padding: 6px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #95d5b2;
+      margin-top: 4px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #40916c;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #2d6a4f;
+    }
+    #result {
+      font-size: 18px;
+      margin: 15px 0;
+      font-weight: bold;
+    }
+    canvas {
+      margin-top: 20px;
+    }
+    .feedback {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .download-btn {
+      margin-top: 20px;
+      background: #0077b6;
+    }
+    .download-btn:hover {
+      background: #023e8a;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🌍 Carbon Emission Calculator</h1>
+  <p>Estimate your weekly carbon footprint and see how eco-friendly you are 🌱</p>
+
+  <div class="container" id="report">
+    <label>🚗 Car travel (km per week):
+      <input type="number" id="car" value="0">
+    </label>
+    <label>🚌 Bus travel (km per week):
+      <input type="number" id="bus" value="0">
+    </label>
+    <label>✈️ Flight travel (km per week):
+      <input type="number" id="flight" value="0">
+    </label>
+    <label>💡 Electricity usage (kWh per week):
+      <input type="number" id="electricity" value="0">
+    </label>
+    <label>🍖 Meat consumption (kg per week):
+      <input type="number" id="meat" value="0">
+    </label>
+    <label>🥦 Vegetables consumption (kg per week):
+      <input type="number" id="veg" value="0">
+    </label>
+
+    <button onclick="calculate()">Calculate My Footprint</button>
+
+    <h3 id="result"></h3>
+    <p class="feedback" id="feedback"></p>
+    <canvas id="emissionChart" width="400" height="400"></canvas>
+
+    <button class="download-btn" onclick="downloadReport()">📥 Save My Report (PDF)</button>
+  </div>
+
+  <script>
+    let chart;
+
+    function calculate() {
+      const factors = {
+        car: 0.21,
+        bus: 0.105,
+        flight: 0.255,
+        electricity: 0.92,
+        meat: 27.0,
+        veg: 2.0
+      };
+
+      const car = parseFloat(document.getElementById('car').value) || 0;
+      const bus = parseFloat(document.getElementById('bus').value) || 0;
+      const flight = parseFloat(document.getElementById('flight').value) || 0;
+      const electricity = parseFloat(document.getElementById('electricity').value) || 0;
+      const meat = parseFloat(document.getElementById('meat').value) || 0;
+      const veg = parseFloat(document.getElementById('veg').value) || 0;
+
+      const emissions = {
+        Car: car * factors.car,
+        Bus: bus * factors.bus,
+        Flight: flight * factors.flight,
+        Electricity: electricity * factors.electricity,
+        Meat: meat * factors.meat,
+        Vegetables: veg * factors.veg
+      };
+
+      const total = Object.values(emissions).reduce((a,b)=>a+b,0);
+      document.getElementById('result').innerText = `✅ Your weekly carbon footprint: ${total.toFixed(2)} kg CO₂`;
+
+      let feedback = "";
+      if (total < 50) {
+        feedback = "💚 Excellent! You're very eco-friendly!";
+      } else if (total < 150) {
+        feedback = "🌱 Good job! But there’s room for improvement.";
+      } else {
+        feedback = "⚠️ High footprint! Try reducing flights, car use, or meat.";
+      }
+      document.getElementById('feedback').innerText = feedback;
+
+      const ctx = document.getElementById('emissionChart').getContext('2d');
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(emissions),
+          datasets: [{
+            data: Object.values(emissions),
+            backgroundColor: ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#2d6a4f']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    async function downloadReport() {
+      const { jsPDF } = window.jspdf;
+      const report = document.getElementById("report");
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(report, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 190; // fit in A4
+      const pageHeight = pdf.internal.pageSize.height;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 10;
+
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save("Carbon_Footprint_Report.pdf");
+    }
+  </script>
+
+</body>
+</html>
